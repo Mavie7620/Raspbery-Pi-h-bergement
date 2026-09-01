@@ -30,3 +30,4 @@ class ProjectOut(BaseModel):
     last_commit: Optional[str]
     autoupdate: bool
     env_vars: dict[str, str]
+    exposed: bool

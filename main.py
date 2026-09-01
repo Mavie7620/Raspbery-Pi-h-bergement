@@ -42,6 +42,7 @@ async def startup():
 def row_to_project(row) -> ProjectOut:
     d = dict(row)
     d["autoupdate"] = bool(d["autoupdate"])
+    d["exposed"] = bool(d.get("exposed", 0))
     d["env_vars"] = json.loads(d.get("env_vars") or "{}")
     return ProjectOut(**d)
 
@@ -146,6 +147,43 @@ def stop_project(project_id: int):
         conn.execute(
             "UPDATE projects SET pid = NULL, status = 'stopped' WHERE id = ?", (project_id,)
         )
+        conn.commit()
+        row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+
+    return row_to_project(row)
+
+
+@app.post("/projects/{project_id}/expose", response_model=ProjectOut)
+def expose_project(project_id: int):
+    """Marque ce projet comme celui servi par le reverse proxy public (port 80).
+
+    Un seul projet peut être exposé à la fois : exposer celui-ci désexpose
+    automatiquement tous les autres.
+    """
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Projet introuvable")
+        if row["status"] != "running":
+            raise HTTPException(400, "Le projet doit être en cours d'exécution pour être exposé")
+
+        conn.execute("UPDATE projects SET exposed = 0")
+        conn.execute("UPDATE projects SET exposed = 1 WHERE id = ?", (project_id,))
+        conn.commit()
+        row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+
+    return row_to_project(row)
+
+
+@app.post("/projects/{project_id}/unexpose", response_model=ProjectOut)
+def unexpose_project(project_id: int):
+    """Retire ce projet du reverse proxy public. Le proxy renverra 503 tant
+    qu'aucun autre projet n'est exposé."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Projet introuvable")
+        conn.execute("UPDATE projects SET exposed = 0 WHERE id = ?", (project_id,))
         conn.commit()
         row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
 

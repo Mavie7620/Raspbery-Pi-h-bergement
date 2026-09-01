@@ -256,6 +256,7 @@ function PiPaasDashboard() {
                   style={{ ...styles.projectRow, ...(isSelected ? styles.projectRowActive : {}) }}>
                   <CircleIcon size={8} color={meta.color} />
                   <span style={styles.projectRowName}>{p.name}</span>
+                  {p.exposed && <Radio size={12} color="#4CAF7D" />}
                   <ChevronRight size={14} color="#5B6270" />
                 </button>
               );
@@ -290,9 +291,16 @@ function PiPaasDashboard() {
                     </span>
                   </div>
                 </div>
-                <div style={styles.statusPill(STATUS_META[selected.status]?.color)}>
-                  <CircleIcon size={7} color={STATUS_META[selected.status]?.color} />
-                  {STATUS_META[selected.status]?.label || selected.status}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <div style={styles.statusPill(STATUS_META[selected.status]?.color)}>
+                    <CircleIcon size={7} color={STATUS_META[selected.status]?.color} />
+                    {STATUS_META[selected.status]?.label || selected.status}
+                  </div>
+                  {selected.exposed && (
+                    <div style={styles.statusPill("#4CAF7D")}>
+                      <Radio size={11} /> Exposé publiquement
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -304,6 +312,17 @@ function PiPaasDashboard() {
                   disabled={busy || selected.status === "stopped"}>
                   <Square size={14} /> Arrêter
                 </button>
+                {selected.exposed ? (
+                  <button style={styles.actionBtn} onClick={() => handleAction("unexpose")} disabled={busy}>
+                    <Radio size={14} /> Retirer du proxy public
+                  </button>
+                ) : (
+                  <button style={styles.actionBtn} onClick={() => handleAction("expose")}
+                    disabled={busy || selected.status !== "running"}
+                    title={selected.status !== "running" ? "Déploie d'abord le projet" : ""}>
+                    <Radio size={14} /> Exposer publiquement
+                  </button>
+                )}
                 <button style={styles.actionBtnDanger} onClick={handleDelete} disabled={busy}>
                   <Trash2 size={14} /> Supprimer
                 </button>
